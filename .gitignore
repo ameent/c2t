@@ -34,3 +34,10 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Ammo.js test
+ammo.js
+
+# IntelliJ IDEs
+.idea/workspace.xml
+.idea/tasks.xml
