@@ -1,10 +1,11 @@
 __author__ = 'Ameen Tayyebi'
 
 import os
+import sys
 import CppHeaderParser
 
-class HeaderTranscriber:
 
+class HeaderTranscriber:
     # List of header parsers
     parsers = []
 
@@ -15,22 +16,24 @@ class HeaderTranscriber:
     header_folder = ""
 
     # List of directories to be excluded in the header folder
-    excluded_folders = ""
+    excluded_folders = []
 
     def __init__(self):
         # Ask for user input
-        self.output_file_name = raw_input("Enter name of output file (e.g. ammo.d.ts):")
-        self.header_folder = raw_input("Enter top level folder location of header files:")
+        self.output_file_name = raw_input("Enter name of output file (e.g. ammo.d.ts): ")
+        self.header_folder = raw_input("Enter top level folder location of header files: ")
         self.excluded_folders = self.grab_folder_exclusions()
 
+        print "--> Parsing header files in ", self.header_folder
         self.initialize_parsers()
+        print "--> Parsing finished"
 
-
-    def grab_folder_exclusions(self):
+    @staticmethod
+    def grab_folder_exclusions():
         """ Grabs a list of folders to exclude from the parsed folder """
 
         folders_to_exclude = []
-        exclude_prompt = "Enter name of folder to be excluded from headers: (empty string to ignore)"
+        exclude_prompt = "Enter name of folder to be excluded from headers: (empty string to ignore) "
         exclude_folder = raw_input(exclude_prompt)
 
         # Keep asking the user for excluded folders until empty string is entered
@@ -45,15 +48,17 @@ class HeaderTranscriber:
         for path, directories, files in os.walk(self.header_folder):
 
             # Parse header files
-            for file in files:
-                if file.endswith("*.h") or file.endswith("*.hpp"):
-                    self.parsers.append(CppHeaderParser.CppHeader(file))
+            try:
+                for f in files:
+                    if f.endswith(".h") or f.endswith(".hpp"):
+                        self.parsers.append(CppHeaderParser.CppHeader(os.path.join(path, f)))
+            except Exception as e:
+                print "Error parsing file: ", os.path.join(path, f), e
 
             # Make sure excluded folders are not traversed
+            for excluded_folder in self.excluded_folders:
+                if excluded_folder in directories:
+                    directories.remove(excluded_folder)
 
-
-
-CppHeaderParser.CppHeader()
-
-clang.cindex.Config.set_library_file('/usr/lib/llvm-3.2/lib/libclang.so.1')
-index = clang.cindex.Index.create()
+# Create a transcriber class which will ask the user for input and perform the parsing
+t = HeaderTranscriber()

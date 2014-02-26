@@ -15,7 +15,7 @@ Python
 
 The script that creates the type declarations in written in Python.  
 <pre>
-sudo apt-get install python
+apt-get install python
 </pre>
 
 CppHeaderParser
@@ -24,6 +24,7 @@ CppHeaderParser
 I'm utilizing the [CppHeaderParser](https://pypi.python.org/pypi/CppHeaderParser/) Python package to perform the parsing of the header files. To install it, you can use the Python package manager.
 
 <pre>
-sudo apt-get install python-pip
+apt-get install python-pip
+pip install ply
 pip install CppHeaderParser
 </pre>
