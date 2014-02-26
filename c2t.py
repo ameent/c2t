@@ -1,11 +1,11 @@
 __author__ = 'Ameen Tayyebi'
 
 import os
-import sys
+
 import CppHeaderParser
 
 
-class HeaderTranscriber:
+class HeaderTranslator:
     # List of header parsers
     parsers = []
 
@@ -18,15 +18,34 @@ class HeaderTranscriber:
     # List of directories to be excluded in the header folder
     excluded_folders = []
 
-    def __init__(self):
-        # Ask for user input
-        self.output_file_name = raw_input("Enter name of output file (e.g. ammo.d.ts): ")
-        self.header_folder = raw_input("Enter top level folder location of header files: ")
-        self.excluded_folders = self.grab_folder_exclusions()
+    # Name of top-level module name
+    module_name = ""
 
+    def __init__(self, output_name, header_directory, output_module_name, folders_to_exclude):
+
+        """
+        Creates a new header translator instance.
+
+        :param output_name: Name of the output file name where the result will be written.
+        :param header_directory: Folder which will be scouted for .h and .hpp files to be used as input
+        :param output_module_name: An optional name for a module will be prepended to all generated classes and interfaces
+        :param folders_to_exclude: Subdirectories that should be excluded when the header_folder is being searched
+                                 for .h and .hpp files
+        """
+        self.output_file_name = output_name
+        self.header_folder = header_directory
+        self.module_name = output_module_name
+        self.excluded_folders = folders_to_exclude
+
+    def parse(self):
         print "--> Parsing header files in ", self.header_folder
         self.initialize_parsers()
         print "--> Parsing finished"
+
+    def dump(self):
+        print "--> Generating ", self.output_file_name
+
+        print "--> Output successfully generated"
 
     @staticmethod
     def grab_folder_exclusions():
@@ -48,6 +67,7 @@ class HeaderTranscriber:
         for path, directories, files in os.walk(self.header_folder):
 
             # Parse header files
+            f = ""
             try:
                 for f in files:
                     if f.endswith(".h") or f.endswith(".hpp"):
@@ -60,5 +80,15 @@ class HeaderTranscriber:
                 if excluded_folder in directories:
                     directories.remove(excluded_folder)
 
-# Create a transcriber class which will ask the user for input and perform the parsing
-t = HeaderTranscriber()
+# Ask for user input
+output_file_name = raw_input("Enter name of output file (e.g. ammo.d.ts): ")
+header_folder = raw_input("Enter top level folder location of header files: ")
+module_name = raw_input("Enter an optional name for top level module for generated classes: (leave empty for none) ")
+excluded_folders = HeaderTranslator.grab_folder_exclusions()
+
+# Create a translator class to perform the actual parsing
+translator = HeaderTranslator(output_file_name, header_folder, module_name, excluded_folders)
+translator.parse()
+
+# Generate declarations for Typescript
+translator.dump()
