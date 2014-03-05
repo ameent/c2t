@@ -24,9 +24,7 @@ class Translator:
     module_name = ""
 
     # Preprocessor results
-    classes = {}
-    parents = {}
-    name_def_pairs = []
+    processed_headers = []
 
     def __init__(self, output_name, header_directory, output_module_name, folders_to_exclude):
 
@@ -57,14 +55,14 @@ class Translator:
         for parser in self.parsers:
             preprocessor.add_header(parser)
 
-        preprocessor.preprocess(self.classes, self.parents, self.name_def_pairs)
+        self.processed_headers = preprocessor.preprocess()
 
         print "--> Preprocessing finished"
 
     def dump(self):
         print "--> Generating ", self.output_file_name
 
-        generator = Generator(self.classes, self.parents, self.name_def_pairs, self.output_file_name, self.module_name)
+        generator = Generator(self.processed_headers, self.output_file_name, self.module_name)
 
         generator.write()
 
