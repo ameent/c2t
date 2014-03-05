@@ -17,20 +17,14 @@ class Preprocessor:
 
         self.cppheaders.append(cppheader)
 
-    def preprocess(self):
+    def preprocess(self, classes, parents, name_def_pairs):
         if len(self.cppheaders) == 0:
             raise "No headers have been added to the preprocessor"
 
-        # Track list of classes and also their parents for nested relationships
-        classes = {}
-        parents = {}
-
         for cppheader in self.cppheaders:
-            self.preprocess_header(cppheader, classes, parents)
+            self.preprocess_header(cppheader, classes, parents, name_def_pairs)
 
-        return classes, parents
-
-    def preprocess_header(self, cppheader, classes, parents):
+    def preprocess_header(self, cppheader, classes, parents, name_def_pairs):
         for classname, clazz in cppheader.classes.items() + cppheader.structs.items():
             print 'zz see', classname, clazz, type(clazz)
             classes[classname] = clazz
@@ -56,8 +50,6 @@ class Preprocessor:
                 clazz['name'] = classname
                 clazz['inherits'] = []
 
-        for classname, clazz in cppheader.classes.items() + cppheader.structs.items():
-            # Various precalculations
             print 'zz precalc', classname
             for method in clazz['methods'][:]:
                 method['constructor'] = method['constructor'] or (
@@ -131,180 +123,181 @@ class Preprocessor:
                         print 'zz unknown operator:', method['name'], ', ignoring'
                         method['ignore'] = True
 
-                        # Fill in some missing stuff
-                        method['returns_text'] = method['returns_text'].replace('&', '').replace('*', '')
-                        if method['returns_text'] in parents:
-                            method['returns_text'] = parents[method['returns_text']] + '::' + method['returns_text']
-                        if method.get('returns_const'): method['returns_text'] = 'const ' + method['returns_text']
-                        if method.get('returns_pointer'):
-                            while method['returns_text'].count('*') < method['returns_pointer']:
-                                method['returns_text'] += '*'
-                        if method.get('returns_reference'): method['returns_text'] += '&'
-                        method['returns_text'] = Preprocessor.process_type(method['returns_text'])
+                # Fill in some missing stuff
+                method['returns_text'] = method['returns_text'].replace('&', '').replace('*', '')
+                if method['returns_text'] in parents:
+                    method['returns_text'] = parents[method['returns_text']] + '::' + method['returns_text']
+                if method.get('returns_const'): method['returns_text'] = 'const ' + method['returns_text']
+                if method.get('returns_pointer'):
+                    while method['returns_text'].count('*') < method['returns_pointer']:
+                        method['returns_text'] += '*'
+                if method.get('returns_reference'): method['returns_text'] += '&'
+                method['returns_text'] = Preprocessor.process_type(method['returns_text'])
 
-                        # Add getters/setters for public members
-                        for prop in clazz['properties']['public']:
-                            # if classname + '::' + prop['name'] in ignored: continue
-                            if prop.get('array_dimensions'):
-                                print 'zz warning: ignoring getter/setter for array', classname + '::' + prop['name']
-                                continue
-                            type_ = prop['type'].replace('mutable ', '')  #.replace(' ', '')
-                            if '<' in prop['name'] or '<' in type_:
-                                print 'zz warning: ignoring getter/setter for templated class', classname + '::' + prop[
-                                    'name']
-                                continue
-                            reference = type_ in classes  # a raw struct or class as a prop means we need to work with a ref
-                            clazz['methods'].append({
-                                'getter': True,
-                                'name': 'get_' + prop['name'],
-                                'constructor': False,
-                                'destructor': False,
-                                'static': False,
-                                'returns': type_.replace(' *', '').replace('*', ''),
-                                'returns_text': type_ + ('&' if reference else ''),
-                                'returns_reference': reference,
-                                'returns_pointer': '*' in type_,
-                                'pure_virtual': False,
-                                'parameters': [[]],
-                            })
-                            clazz['methods'].append({
-                                'setter': True,
-                                'name': 'set_' + prop['name'],
-                                'constructor': False,
-                                'destructor': False,
-                                'static': False,
-                                'returns': 'void',
-                                'returns_text': 'void',
-                                'returns_reference': False,
-                                'returns_pointer': False,
-                                'pure_virtual': False,
-                                'parameters': [[{
-                                                    'type': type_ + ('&' if reference else ''),
-                                                    'name': 'value',
-                                                }]],
-                            })
+                # Add getters/setters for public members
+                for prop in clazz['properties']['public']:
+                    # if classname + '::' + prop['name'] in ignored: continue
+                    if prop.get('array_dimensions'):
+                        print 'zz warning: ignoring getter/setter for array', classname + '::' + prop['name']
+                        continue
+                    type_ = prop['type'].replace('mutable ', '')  #.replace(' ', '')
+                    if '<' in prop['name'] or '<' in type_:
+                        print 'zz warning: ignoring getter/setter for templated class', classname + '::' + prop[
+                            'name']
+                        continue
+                    reference = type_ in classes  # a raw struct or class as a prop means we need to work with a ref
+                    clazz['methods'].append({
+                        'getter': True,
+                        'name': 'get_' + prop['name'],
+                        'constructor': False,
+                        'destructor': False,
+                        'static': False,
+                        'returns': type_.replace(' *', '').replace('*', ''),
+                        'returns_text': type_ + ('&' if reference else ''),
+                        'returns_reference': reference,
+                        'returns_pointer': '*' in type_,
+                        'pure_virtual': False,
+                        'parameters': [[]],
+                    })
+                    clazz['methods'].append({
+                        'setter': True,
+                        'name': 'set_' + prop['name'],
+                        'constructor': False,
+                        'destructor': False,
+                        'static': False,
+                        'returns': 'void',
+                        'returns_text': 'void',
+                        'returns_reference': False,
+                        'returns_pointer': False,
+                        'pure_virtual': False,
+                        'parameters': [[{
+                                            'type': type_ + ('&' if reference else ''),
+                                            'name': 'value',
+                                        }]],
+                    })
 
-                    print 'zz is effectively abstract?', clazz['name'], classname, '0'
-                    if 'saved_methods' in clazz and not Preprocessor.check_has_constructor(clazz):
-                        print 'zz is effectively abstract?', clazz['name'], '1'
-                        # Having a private constructor and no public constructor means you are, in effect, abstract
-                        for private_method in clazz['saved_methods']['private']:
-                            print 'zz is effectively abstract?', clazz['name'], '2'
-                            if private_method['constructor']:
-                                print 'zz is effectively abstract?', clazz['name'], '3'
-                                clazz['effectively_abstract'] = True
+            print 'zz is effectively abstract?', clazz['name'], classname, '0'
+            if 'saved_methods' in clazz and not Preprocessor.check_has_constructor(clazz):
+                print 'zz is effectively abstract?', clazz['name'], '1'
+                # Having a private constructor and no public constructor means you are, in effect, abstract
+                for private_method in clazz['saved_methods']['private']:
+                    print 'zz is effectively abstract?', clazz['name'], '2'
+                    if private_method['constructor']:
+                        print 'zz is effectively abstract?', clazz['name'], '3'
+                        clazz['effectively_abstract'] = True
 
-                    # Add destroyer
-                    if not clazz.get('abstract') and not clazz.get('effectively_abstract'):
-                        clazz['methods'].append({
-                            'destroyer': True,
-                            'name': '__destroy__',
-                            'constructor': False,
-                            'destructor': False,
-                            'static': False,
-                            'returns': 'void',
-                            'returns_text': 'void',
-                            'returns_reference': False,
-                            'returns_pointer': False,
-                            'pure_virtual': False,
-                            'parameters': [[]],
-                        })
+            # Add destroyer
+            if not clazz.get('abstract') and not clazz.get('effectively_abstract'):
+                clazz['methods'].append({
+                    'destroyer': True,
+                    'name': '__destroy__',
+                    'constructor': False,
+                    'destructor': False,
+                    'static': False,
+                    'returns': 'void',
+                    'returns_text': 'void',
+                    'returns_reference': False,
+                    'returns_pointer': False,
+                    'pure_virtual': False,
+                    'parameters': [[]],
+                })
 
-                    clazz['methods'] = filter(lambda method: not method.get('ignore'), clazz['methods'])
+            clazz['methods'] = filter(lambda method: not method.get('ignore'), clazz['methods'])
+            clazz['final_methods'] = {}
 
-                    for classname, clazz in cppheader.classes.items() + cppheader.structs.items():
-                        clazz['final_methods'] = {}
+            def explore(subclass, template_name=None, template_value=None):
+                # Do our functions first, and do not let later classes override
+                for method in subclass['methods']:
+                    print classname, 'exploring', subclass['name'], '::', method['name']
 
-                        def explore(subclass, template_name=None, template_value=None):
-                            # Do our functions first, and do not let later classes override
-                            for method in subclass['methods']:
-                                print classname, 'exploring', subclass['name'], '::', method['name']
+                    if method['constructor']:
+                        if clazz != subclass:
+                            print "zz Subclasses cannot directly use their parent's constructors"
+                            continue
+                    if method['destructor']:
+                        print 'zz Nothing to do there'
+                        continue
 
-                                if method['constructor']:
-                                    if clazz != subclass:
-                                        print "zz Subclasses cannot directly use their parent's constructors"
-                                        continue
-                                if method['destructor']:
-                                    print 'zz Nothing to do there'
-                                    continue
+                    if method.get('operator') and subclass is not clazz:
+                        print 'zz Do not use parent class operators. Cast to that class if you need those operators (castObject)'
+                        continue
 
-                                if method.get('operator') and subclass is not clazz:
-                                    print 'zz Do not use parent class operators. Cast to that class if you need those operators (castObject)'
-                                    continue
+                    if method['name'] not in clazz['final_methods']:
+                        copied = clazz['final_methods'][method['name']] = {}
+                        for key in ['name', 'constructor', 'static', 'returns', 'returns_text',
+                                    'returns_reference', 'returns_pointer', 'destructor', 'pure_virtual',
+                                    'getter', 'setter', 'destroyer', 'operator']:
+                            copied[key] = method.get(key)
+                        copied['origin'] = subclass
+                        copied['parameters'] = [];
+                        for args in method['parameters']:
+                            # Copy the arguments, since templating may cause them to be altered
+                            copied['parameters'].append(Preprocessor.copy_args(args))
+                        if template_name:
+                            # Set template values
+                            copied['returns'] = copied['returns'].replace(template_name, template_value)
+                            copied['returns_text'] = copied['returns_text'].replace(template_name,
+                                                                                    template_value)
+                            for args in copied['parameters']:
+                                for arg in args:
+                                    arg['type'] = arg['type'].replace(template_name, template_value)
+                    else:
+                        # Merge the new function in the best way we can. Two signatures (args) must differ in their number
 
-                                if method['name'] not in clazz['final_methods']:
-                                    copied = clazz['final_methods'][method['name']] = {}
-                                    for key in ['name', 'constructor', 'static', 'returns', 'returns_text',
-                                                'returns_reference', 'returns_pointer', 'destructor', 'pure_virtual',
-                                                'getter', 'setter', 'destroyer', 'operator']:
-                                        copied[key] = method.get(key)
-                                    copied['origin'] = subclass
-                                    copied['parameters'] = [];
-                                    for args in method['parameters']:
-                                        # Copy the arguments, since templating may cause them to be altered
-                                        copied['parameters'].append(Preprocessor.copy_args(args))
-                                    if template_name:
-                                        # Set template values
-                                        copied['returns'] = copied['returns'].replace(template_name, template_value)
-                                        copied['returns_text'] = copied['returns_text'].replace(template_name,
-                                                                                                template_value)
-                                        for args in copied['parameters']:
-                                            for arg in args:
-                                                arg['type'] = arg['type'].replace(template_name, template_value)
-                                else:
-                                    # Merge the new function in the best way we can. Two signatures (args) must differ in their number
+                        if method.get('operator'): continue  # do not merge operators
 
-                                    if method.get('operator'): continue  # do not merge operators
+                        curr = clazz['final_methods'][method['name']]
 
-                                    curr = clazz['final_methods'][method['name']]
+                        if curr[
+                            'origin'] is not subclass: continue  # child class functions mask/hide parent functions of the same name in C++
 
-                                    if curr[
-                                        'origin'] is not subclass: continue  # child class functions mask/hide parent functions of the same name in C++
+                        problem = False
+                        for curr_args in curr['parameters']:
+                            for method_args in method['parameters']:
+                                if len(curr_args) == len(method_args):
+                                    problem = True
+                        if problem:
+                            print 'Warning: Cannot mix in overloaded functions', method[
+                                'name'], 'in class', classname, ', skipping'
+                            continue
+                        # TODO: Other compatibility checks, if any?
 
-                                    problem = False
-                                    for curr_args in curr['parameters']:
-                                        for method_args in method['parameters']:
-                                            if len(curr_args) == len(method_args):
-                                                problem = True
-                                    if problem:
-                                        print 'Warning: Cannot mix in overloaded functions', method[
-                                            'name'], 'in class', classname, ', skipping'
-                                        continue
-                                    # TODO: Other compatibility checks, if any?
+                        curr['parameters'] += map(Preprocessor.copy_args, method['parameters'])
 
-                                    curr['parameters'] += map(Preprocessor.copy_args, method['parameters'])
+                        print 'zz ', classname, 'has updated parameters of ', curr['parameters']
 
-                                    print 'zz ', classname, 'has updated parameters of ', curr['parameters']
+                # Recurse
+                if subclass.get('inherits'):
+                    for parent in subclass['inherits']:
+                        parent = parent['class']
+                        template_name = None
+                        template_value = None
+                        if '<' in parent:
+                            parent, template = parent.split('<')
+                            if parent not in classes:
+                                print 'Warning: parent class', parent, 'not a known class. Ignoring.'
+                                return
+                            template_name = classes[parent]['template_typename']
+                            template_value = Preprocessor.fix_template_value(template.replace('>', ''))
+                            print 'template', template_value, 'for', classname, '::', parent, ' | ', template_name
+                        if parent not in classes and '::' in classname:  # They might both be subclasses in the same parent
+                            parent = classname.split('::')[0] + '::' + parent
+                        if parent not in classes:
+                            print 'Warning: parent class', parent, 'not a known class. Ignoring.'
+                            return
+                        explore(classes[parent], template_name, template_value)
 
-                            # Recurse
-                            if subclass.get('inherits'):
-                                for parent in subclass['inherits']:
-                                    parent = parent['class']
-                                    template_name = None
-                                    template_value = None
-                                    if '<' in parent:
-                                        parent, template = parent.split('<')
-                                        template_name = classes[parent]['template_typename']
-                                        template_value = Preprocessor.fix_template_value(template.replace('>', ''))
-                                        print 'template', template_value, 'for', classname, '::', parent, ' | ', template_name
-                                    if parent not in classes and '::' in classname:  # They might both be subclasses in the same parent
-                                        parent = classname.split('::')[0] + '::' + parent
-                                    if parent not in classes:
-                                        print 'Warning: parent class', parent, 'not a known class. Ignoring.'
-                                        return
-                                    explore(classes[parent], template_name, template_value)
+            explore(clazz)
 
-                        explore(clazz)
+            for method in clazz['final_methods'].itervalues():
+                method['parameters'].sort(key=len)
 
-                        for method in clazz['final_methods'].itervalues():
-                            method['parameters'].sort(key=len)
+            name_def_pairs.append((classname, clazz))
 
 
+    ''' Filters types found in the input headers '''
     @staticmethod
     def process_type(type):
-        ''' Filters types found in the input headers
-        '''
-
         # Remove float references
         return type.replace('const float', 'float').replace('float &', 'float').replace('float&', 'float')
 
