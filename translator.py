@@ -3,6 +3,8 @@ __author__ = 'Ameen Tayyebi'
 import os
 
 import CppHeaderParser
+from preprocessor import *
+from generator import *
 
 
 class Translator:
@@ -20,6 +22,10 @@ class Translator:
 
     # Name of top-level module name
     module_name = ""
+
+    # Preprocessor results
+    classes = []
+    parents = []
 
     def __init__(self, output_name, header_directory, output_module_name, folders_to_exclude):
 
@@ -42,8 +48,24 @@ class Translator:
         self.initialize_parsers()
         print "--> Parsing finished"
 
+    def preprocess(self):
+        print "--> Preprocessing headers"
+
+        preprocessor = Preprocessor()
+
+        for parser in self.parsers:
+            preprocessor.add_header(parser)
+
+        self.classes, self.parents = preprocessor.preprocess()
+
+        print "--> Preprocessing finished"
+
     def dump(self):
         print "--> Generating ", self.output_file_name
+
+        generator = Generator(self.classes, self.parents, self.output_file_name)
+
+        generator.write()
 
         print "--> Output successfully generated"
 
