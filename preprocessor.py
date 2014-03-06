@@ -75,8 +75,19 @@ class Preprocessor:
                     # If we are dealing with an unsupported operator, then ignore it
                     method['name'] = Preprocessor.ignore_tag
 
-            # For each of the parameters, fix the types
+            # For each of the parameters, fix the types and names
+            arg_index = 0
             for arg in method['parameters']:
+
+                # Sometimes CppHeaderParser parses the reference character & into the name of the argument
+                arg['name'] = arg['name'].replace('&', '')
+
+                # If the parameter has no name, then create a generic one for it
+                if arg['name'] == '':
+                    arg['name'] = 'arg' + str(arg_index)
+                    arg_index += 1
+
+                # Fix the type
                 arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
 
         # Fix type of public properties
