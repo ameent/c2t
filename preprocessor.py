@@ -59,6 +59,18 @@ class Preprocessor:
         # Go over all the methods that are public and change their parameter types to Typescript syntax
         for method in cls['methods']['public']:
 
+            # If the method is already processed (it could occur when we are processing
+            # class hierarchies since subclasses use the same object instance to define
+            # a method that they have inherited from a parent; the same method class instance
+            # is shared with all subclasses)
+            if method.get('processed'):
+                continue
+
+            # If method is pure virtual, then ignore it because there is no way to directly call it from JavaScript
+            if method.get('pure_virtual') and method['pure_virtual']:
+                method['name'] = Preprocessor.ignore_tag
+                continue
+
             # Fix return type of method
             method['rtnType'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
 
@@ -99,6 +111,8 @@ class Preprocessor:
 
                 # Fix the type
                 arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
+
+            method['processed'] = True
 
         # Process properties now
         for prop in cls['properties']['public']:
@@ -149,7 +163,7 @@ class Preprocessor:
             .replace('inline', '').replace('const ', '')\
             .replace('struct ', '').replace('static ', '')\
             .replace('class ', '').replace('unsigned ', '')\
-            .replace('mutable ', '')\
+            .replace('mutable ', '').replace('short ', '')\
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
