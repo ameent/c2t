@@ -46,7 +46,7 @@ class Generator:
             output_file.write('\texport class %s {\r\n' % cls['name'])
 
         # Generate methods
-        for method in cls['methods']['public']:
+        for method in sorted(cls['methods']['public'], key=lambda m: m['name']):
             Generator.write_method(method, output_file)
 
         output_file.write('\t}\r\n')

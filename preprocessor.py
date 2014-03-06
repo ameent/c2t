@@ -120,7 +120,11 @@ class Preprocessor:
 
     @staticmethod
     def clean_type(t):
-        return t.replace('inline', '').replace('const ', '').replace('struct ', '').replace('static ','') \
+        # Unsigned char * and void * are raw pointers and we don't have any equivalents in Typescript
+        return t.replace('unsigned char *', 'any').replace('void *', 'any')\
+            .replace('inline', '').replace('const ', '')\
+            .replace('struct ', '').replace('static ', '')\
+            .replace('class ', '').replace('unsigned ') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
