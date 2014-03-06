@@ -42,10 +42,10 @@ class Preprocessor:
         return processed_classes
 
     @staticmethod
-    def preprocess_class(cls):
+    def preprocess_class(cls, force_process=False):
         # If the class does not have a constructor, then we won't be able to construct one
         # in JS world either, so we ignore classes without constructors
-        if not Preprocessor.has_constructor(cls):
+        if not Preprocessor.has_constructor(cls) and not force_process:
             return False
 
         # Change :: to . to match Typescript syntax
@@ -105,7 +105,11 @@ class Preprocessor:
 
         # Recurse on nested classes
         for nested_cls in cls['nested_classes']:
-            Preprocessor.preprocess_class(nested_cls)
+            # Force processing of nested types even if they don't have a public constructor (or otherwise
+            # don't match the criteria that we need. It's very likely that the outer class produces the
+            # nested class via some internal process and returns it to outside parties, as such, we preprocess
+            # the type and include it in the output to reduce chances of things breaking down
+            Preprocessor.preprocess_class(nested_cls, force_process=True)
 
         return True
 
