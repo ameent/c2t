@@ -1,5 +1,6 @@
 __author__ = 'Ameen Tayyebi'
 
+from preprocessor import *
 
 class Generator:
 
@@ -41,18 +42,26 @@ class Generator:
 
         # Generate methods
         for method in cls['methods']['public']:
-
-            # Ignore destructors
-            if method['destructor']:
-                continue
-
-            # Generate list of parameters
-            param_list = ','.join('%s:%s' % (arg['name'], arg['type']) for arg in method['parameters'])
-
-            # Print composed signature
-            if method['constructor']:
-                output_file.write('\t\tconstructor(%s);\r\n' % param_list)
-            else:
-                output_file.write('\t\tpublic %s(%s):%s;\r\n' % (method['name'], param_list, method['rtnType']))
+            Generator.write_method(method, output_file)
 
         output_file.write('\t}\r\n')
+
+    @staticmethod
+    def write_method(method, output_file):
+
+        # If the preprocessor indicates that the method should be ignored, then do so
+        if method['name'] == Preprocessor.ignore_tag:
+            return
+
+        # Ignore destructors
+        if method['destructor']:
+            return
+
+        # Generate list of parameters
+        param_list = ','.join('%s:%s' % (arg['name'], arg['type']) for arg in method['parameters'])
+
+        # Print composed signature
+        if method['constructor']:
+            output_file.write('\t\tconstructor(%s);\r\n' % param_list)
+        else:
+            output_file.write('\t\tpublic %s(%s):%s;\r\n' % (method['name'], param_list, method['rtnType']))

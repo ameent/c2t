@@ -5,6 +5,9 @@ import CppHeaderParser
 
 class Preprocessor:
 
+    # Methods that need to be ignored will be renamed to this string
+    ignore_tag = '____ignore____'
+
     def __init__(self):
         pass
 
@@ -53,6 +56,25 @@ class Preprocessor:
 
             # Fix return type of method
             method['rtnType'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(method['rtnType']))
+
+            # Is this an operator? If so, the key 'operator' will be truthy and
+            # hold the value of the operator, for example '='
+            # This code assumes that the bindings use the same format as those of Emscripten
+            if method['operator']:
+                swaps = {
+                    '=':'op_set',
+                    '+':'op_add',
+                    '-':'op_sub',
+                    '*':'op_mul',
+                    '/':'op_div',
+                    '[]':'op_get',
+                    '==':'op_eq'
+                }
+                if swaps.get(method['operator']):
+                    method['name'] = swaps[method['operator']]
+                else:
+                    # If we are dealing with an unsupported operator, then ignore it
+                    method['name'] = Preprocessor.ignore_tag
 
             # For each of the parameters, fix the types
             for arg in method['parameters']:
