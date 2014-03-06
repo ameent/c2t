@@ -41,6 +41,9 @@ class Generator:
 
     def write_class(self, cls, output_file, indent_level):
 
+        if cls['name'] == Preprocessor.ignore_tag:
+            return
+
         indent = indent_level * Generator.indent_white_space
 
         if len(cls['inherits']) > 0:
@@ -54,11 +57,28 @@ class Generator:
         for method in sorted(cls['methods']['public'], key=lambda m: m['name']):
             Generator.write_method(method, output_file, indent_level + 1)
 
+        # Generate setters and getter for public properties
+        for prop in cls['properties']['public']:
+            Generator.write_property(prop, output_file, indent_level + 1)
+
         # Generate nested classes
         for nested_class in cls['nested_classes']:
             self.write_class(nested_class, output_file, indent_level + 1)
 
         output_file.write('%s}\r\n' % indent)
+
+    ''' Write getter and setter for properties '''
+    @staticmethod
+    def write_property(prop, output_file, indent_level):
+
+        # Ignore malformed properties
+        if prop['name'] == Preprocessor.ignore_tag:
+            return
+
+        indent = indent_level * Generator.indent_white_space
+
+        output_file.write('%sget_%s():%s;\r\n' % (indent, prop['name'], prop['type']))
+        output_file.write('%sset_%s(value:%s):void;\r\n' % (indent, prop['name'], prop['type']))
 
     @staticmethod
     def write_method(method, output_file, indent_level):

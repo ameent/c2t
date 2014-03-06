@@ -48,6 +48,11 @@ class Preprocessor:
         if not Preprocessor.has_constructor(cls) and not force_process:
             return False
 
+        # It's possible that CppHeaderParser claims a union to be a class, if that's the case,
+        # then ignore it
+        if cls['name'] == 'union ' or cls['name'] == 'union':
+            cls['name'] = Preprocessor.ignore_tag
+
         # Change :: to . to match Typescript syntax
         cls['name'] = cls['name'].replace('::', '.')
 
@@ -95,8 +100,15 @@ class Preprocessor:
                 # Fix the type
                 arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
 
-        # Fix type of public properties
+        # Process properties now
         for prop in cls['properties']['public']:
+            # Ignore properties that have no name. This can happen if someone yawns with eyes open, or
+            # if an anonymous union is defined inside a class, for example:
+            # union { void* m_internalInfo1; int m_internalTmpValue;};
+            if prop['name'] == '':
+                prop['name'] = Preprocessor.ignore_tag
+
+            # Fix type
             prop['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(prop['type']))
 
         # Inheritance chain
@@ -136,7 +148,8 @@ class Preprocessor:
         return t.replace('unsigned char *', 'any').replace('void *', 'any')\
             .replace('inline', '').replace('const ', '')\
             .replace('struct ', '').replace('static ', '')\
-            .replace('class ', '').replace('unsigned ', '') \
+            .replace('class ', '').replace('unsigned ', '')\
+            .replace('mutable ', '')\
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
