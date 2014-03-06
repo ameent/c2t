@@ -69,4 +69,7 @@ class Generator:
         if method['constructor']:
             output_file.write('\t\tconstructor(%s);\r\n' % param_list)
         else:
-            output_file.write('\t\tpublic %s(%s):%s;\r\n' % (method['name'], param_list, method['rtnType']))
+            output_file.write('\t\tpublic %s%s(%s):%s;\r\n' % (
+                ('static ' if method['static'] else ''),
+                method['name'],
+                param_list, method['rtnType']))

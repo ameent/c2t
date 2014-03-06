@@ -109,7 +109,7 @@ class Preprocessor:
 
     @staticmethod
     def clean_type(t):
-        return t.replace('inline', '').replace('const ', '').replace('struct ', '') \
+        return t.replace('inline', '').replace('const ', '').replace('struct ', '').replace('static ','') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
