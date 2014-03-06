@@ -1,6 +1,7 @@
 __author__ = 'Ameen Tayyebi'
 
 import CppHeaderParser
+import re
 
 
 class Preprocessor:
@@ -54,7 +55,7 @@ class Preprocessor:
         for method in cls['methods']['public']:
 
             # Fix return type of method
-            method['rtnType'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(method['rtnType']))
+            method['rtnType'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
 
             # Is this an operator? If so, the key 'operator' will be truthy and
             # hold the value of the operator, for example '='
@@ -87,6 +88,10 @@ class Preprocessor:
                     arg['name'] = 'arg' + str(arg_index)
                     arg_index += 1
 
+                # Remove any templates if present
+                if arg.get('template'):
+                    arg['type'] = Preprocessor.clean_template(arg['type'])
+
                 # Fix the type
                 arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
 
@@ -96,7 +101,7 @@ class Preprocessor:
 
         # Inheritance chain
         for parent in cls['inherits']:
-            parent['class'] = parent['class'].replace('::', '.')
+            parent['class'] = Preprocessor.clean_template(parent['class']).replace('::', '.')
 
         # Recurse on nested classes
         for nested_cls in cls['nested_classes']:
@@ -104,6 +109,9 @@ class Preprocessor:
 
         return True
 
+    @staticmethod
+    def clean_template(t):
+        return re.sub(r'<.*>', '', t)
 
     @staticmethod
     def has_constructor(cls):
@@ -124,7 +132,7 @@ class Preprocessor:
         return t.replace('unsigned char *', 'any').replace('void *', 'any')\
             .replace('inline', '').replace('const ', '')\
             .replace('struct ', '').replace('static ', '')\
-            .replace('class ', '').replace('unsigned ') \
+            .replace('class ', '').replace('unsigned ', '') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
