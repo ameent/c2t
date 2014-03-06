@@ -4,7 +4,6 @@ import CppHeaderParser
 
 
 class Preprocessor:
-
     # Methods that need to be ignored will be renamed to this string
     ignore_tag = '____ignore____'
 
@@ -62,13 +61,13 @@ class Preprocessor:
             # This code assumes that the bindings use the same format as those of Emscripten
             if method['operator']:
                 swaps = {
-                    '=':'op_set',
-                    '+':'op_add',
-                    '-':'op_sub',
-                    '*':'op_mul',
-                    '/':'op_div',
-                    '[]':'op_get',
-                    '==':'op_eq'
+                    '=': 'op_set',
+                    '+': 'op_add',
+                    '-': 'op_sub',
+                    '*': 'op_mul',
+                    '/': 'op_div',
+                    '[]': 'op_get',
+                    '==': 'op_eq'
                 }
                 if swaps.get(method['operator']):
                     method['name'] = swaps[method['operator']]
@@ -81,8 +80,8 @@ class Preprocessor:
                 arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
 
         # Fix type of public properties
-        for property in cls['properties']['public']:
-            property['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(property['type']))
+        for prop in cls['properties']['public']:
+            prop['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(prop['type']))
 
         # Inheritance chain
         for parent in cls['inherits']:
@@ -105,13 +104,13 @@ class Preprocessor:
 
     @staticmethod
     def swap_builtin_types(t):
-        return t.replace('int', 'number').replace('float', 'number').replace('double', 'number')\
-            .replace('bool', 'boolean')
+        return t.replace('int', 'number').replace('float', 'number').replace('double', 'number') \
+            .replace('bool', 'boolean').replace('char', 'string')
 
     @staticmethod
     def clean_type(t):
-        return t.replace('inline', '').replace('const ', '').replace('struct ', '')\
-            .replace('&', '').replace('*', '')\
+        return t.replace('inline', '').replace('const ', '').replace('struct ', '') \
+            .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
 
     @staticmethod

@@ -38,7 +38,12 @@ class Generator:
 
     def write_class(self, cls, output_file):
 
-        output_file.write('\texport class %s {\r\n' % cls['name'])
+        if len(cls['inherits']) > 0:
+            # if there is multiple inheritance in the original C++, we choose the very first class since
+            # TypeScript does not allow multiple inheritance
+            output_file.write('\texport class %s extends %s {\r\n' % (cls['name'], cls['inherits'][0]['class']))
+        else:
+            output_file.write('\texport class %s {\r\n' % cls['name'])
 
         # Generate methods
         for method in cls['methods']['public']:
