@@ -72,7 +72,8 @@ class Preprocessor:
                 continue
 
             # Fix return type of method
-            method['rtnType'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
+            method['rtnType'] = Preprocessor.swap_builtin_types(
+                Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
 
             # Is this an operator? If so, the key 'operator' will be truthy and
             # hold the value of the operator, for example '='
@@ -123,7 +124,8 @@ class Preprocessor:
                 prop['name'] = Preprocessor.ignore_tag
 
             # Fix type
-            prop['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(prop['type']))
+            prop['type'] = Preprocessor.swap_builtin_types(
+                Preprocessor.clean_type(Preprocessor.clean_template(prop['type'])))
 
         # Inheritance chain
         for parent in cls['inherits']:
@@ -154,24 +156,15 @@ class Preprocessor:
     @staticmethod
     def swap_builtin_types(t):
         return t.replace('int', 'number').replace('float', 'number').replace('double', 'number') \
-            .replace('bool', 'boolean').replace('char', 'string')
+            .replace('bool', 'boolean').replace('char', 'string').replace('size_t', 'any')
 
     @staticmethod
     def clean_type(t):
         # Unsigned char * and void * are raw pointers and we don't have any equivalents in Typescript
-        return t.replace('unsigned char *', 'any').replace('void *', 'any')\
-            .replace('inline', '').replace('const ', '')\
-            .replace('struct ', '').replace('static ', '')\
-            .replace('class ', '').replace('unsigned ', '')\
-            .replace('mutable ', '').replace('short ', '')\
+        return t.replace('unsigned char *', 'any').replace('void *', 'any') \
+            .replace('inline', '').replace('const ', '') \
+            .replace('struct ', '').replace('static ', '') \
+            .replace('class ', '').replace('unsigned ', '') \
+            .replace('mutable ', '').replace('short ', '') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
-
-    @staticmethod
-    def fix_template_value(t):  # Not sure why this is needed, might be a bug in CppHeaderParser
-        if t == 'unsignedshortint':
-            return 'unsigned short int'
-        elif t == 'unsignedint':
-            return 'unsigned int'
-        return t
-
