@@ -36,13 +36,13 @@ class Preprocessor:
         processed_classes = []
 
         for cls in header.classes.values():
-            if Preprocessor.preprocess_class(cls):
+            if Preprocessor.preprocess_class(cls, header):
                 processed_classes.append(cls)
 
         return processed_classes
 
     @staticmethod
-    def preprocess_class(cls):
+    def preprocess_class(cls, header):
 
         # It's possible that CppHeaderParser claims a union to be a class, if that's the case,
         # then ignore it
@@ -54,7 +54,7 @@ class Preprocessor:
 
         # Go over all the methods that are public and change their parameter types to Typescript syntax
         for method in cls['methods']['public']:
-            Preprocessor.process_method(method)
+            Preprocessor.process_method(method, header)
 
         # Process properties now
         for prop in cls['properties']['public']:
@@ -65,8 +65,7 @@ class Preprocessor:
                 prop['name'] = Preprocessor.ignore_tag
 
             # Fix type
-            prop['type'] = Preprocessor.swap_builtin_types(
-                Preprocessor.clean_type(Preprocessor.clean_template(prop['type'])))
+            prop['type'] = Preprocessor.convert_type(prop['type'], header)
 
         # Inheritance chain
         for parent in cls['inherits']:
@@ -74,12 +73,12 @@ class Preprocessor:
 
         # Recurse on nested classes
         for nested_cls in cls['nested_classes']:
-            Preprocessor.preprocess_class(nested_cls)
+            Preprocessor.preprocess_class(nested_cls, header)
 
         return True
 
     @staticmethod
-    def process_method(method):
+    def process_method(method, header):
         # If the method is already processed (it could occur when we are processing
         # class hierarchies since subclasses use the same object instance to define
         # a method that they have inherited from a parent; the same method class instance
@@ -97,8 +96,7 @@ class Preprocessor:
             # This could happen if the class is templated and a templated type is returned
             method['rtnType'] = 'any'
         else:
-            method['rtnType'] = Preprocessor.swap_builtin_types(
-                Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
+            method['rtnType'] = Preprocessor.convert_type(method['rtnType'], header)
 
         # Is this an operator? If so, the key 'operator' will be truthy and
         # hold the value of the operator, for example '='
@@ -142,9 +140,31 @@ class Preprocessor:
                 arg['type'] = Preprocessor.clean_template(arg['type'])
 
             # Fix the type
-            arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
+            arg['type'] = Preprocessor.convert_type(arg['type'], header)
 
         method['processed'] = True
+
+    @staticmethod
+    def convert_type(t, header):
+
+        # Clean signage, const, etc.
+        t = Preprocessor.clean_type(t)
+
+        # Check to see if the type is a typedef and if so, convert it to its equivalent
+        if header.typedefs.get(t):
+            t = header.typedefs[t]
+
+        # Again, clean signage, etc. since the typedef may have resolved to something
+        # with the unneeded extras
+        t = Preprocessor.clean_type(t)
+
+        # Remove any templated parameters
+        t = Preprocessor.clean_template(t)
+
+        # Finally convert if it is a built-in type
+        t = Preprocessor.swap_builtin_types(t)
+
+        return t
 
     @staticmethod
     def clean_template(t):
@@ -153,7 +173,7 @@ class Preprocessor:
     @staticmethod
     def swap_builtin_types(t):
         return t.replace('int', 'number').replace('float', 'number').replace('double', 'number') \
-            .replace('bool', 'boolean').replace('char', 'string').replace('size_t', 'any')
+            .replace('bool', 'boolean').replace('char', 'string')
 
     @staticmethod
     def clean_type(t):
