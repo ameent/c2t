@@ -24,22 +24,29 @@ class Preprocessor:
             raise "No headers have been added to the preprocessor"
 
         processed_classes = []
+        processed_enums = []
 
         for header in self.headers:
-            processed_classes = processed_classes + self.preprocess_header(header)
+            classes, enums = self.preprocess_header(header)
+            processed_classes += classes
+            processed_enums += enums
 
-        return processed_classes
+        return processed_classes, processed_enums
 
     @staticmethod
     def preprocess_header(header):
 
         processed_classes = []
+        processed_enums = []
 
         for cls in header.classes.values():
             if Preprocessor.preprocess_class(cls, header):
                 processed_classes.append(cls)
 
-        return processed_classes
+        for enum in header.global_enums.values():
+            processed_enums.append(enum)
+
+        return processed_classes, processed_enums
 
     @staticmethod
     def preprocess_class(cls, header):
@@ -129,12 +136,6 @@ class Preprocessor:
                 arg['name'] = 'arg' + str(arg_index)
                 arg_index += 1
 
-            # If the type of the parameter is not resolved, then it could be a templated
-            # parameter, so we resort to the 'any' type
-            if arg['unresolved']:
-                arg['type'] = 'any'
-                continue
-
             # Remove any templates if present (e.g. SomeClass<SomeType>)
             if arg.get('template'):
                 arg['type'] = Preprocessor.clean_template(arg['type'])
@@ -172,8 +173,18 @@ class Preprocessor:
 
     @staticmethod
     def swap_builtin_types(t):
-        return t.replace('int', 'number').replace('float', 'number').replace('double', 'number') \
-            .replace('bool', 'boolean').replace('char', 'string')
+        swapper = {
+            'int': 'number',
+            'float': 'number',
+            'double': 'number',
+            'bool': 'boolean',
+            'char': 'string'
+        }
+
+        if swapper.get(t):
+            t = swapper[t]
+
+        return t
 
     @staticmethod
     def clean_type(t):
