@@ -51,7 +51,7 @@ class Translator:
     def preprocess(self):
         print "--> Preprocessing headers"
 
-        preprocessor = Preprocessor()
+        preprocessor = Preprocessor(self.module_name)
 
         for parser in self.parsers:
             preprocessor.add_header(parser)
