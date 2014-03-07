@@ -77,8 +77,8 @@ class Generator:
 
         indent = indent_level * Generator.indent_white_space
 
-        output_file.write('%spublic get_%s():%s;\r\n' % (indent, prop['name'], prop['type']))
-        output_file.write('%spublic set_%s(value:%s):void;\r\n' % (indent, prop['name'], prop['type']))
+        output_file.write('%sget_%s():%s;\r\n' % (indent, prop['name'], prop['type']))
+        output_file.write('%sset_%s(value:%s):void;\r\n' % (indent, prop['name'], prop['type']))
 
     @staticmethod
     def write_method(method, output_file, indent_level):
@@ -100,7 +100,7 @@ class Generator:
         if method['constructor']:
             output_file.write('%sconstructor(%s);\r\n' % (indent, param_list))
         else:
-            output_file.write('%spublic %s%s(%s):%s;\r\n' % (
+            output_file.write('%s%s%s(%s):%s;\r\n' % (
                 indent,
                 ('static ' if method['static'] else ''),
                 method['name'],
