@@ -54,62 +54,7 @@ class Preprocessor:
 
         # Go over all the methods that are public and change their parameter types to Typescript syntax
         for method in cls['methods']['public']:
-
-            # If the method is already processed (it could occur when we are processing
-            # class hierarchies since subclasses use the same object instance to define
-            # a method that they have inherited from a parent; the same method class instance
-            # is shared with all subclasses)
-            if method.get('processed'):
-                continue
-
-            # If method is pure virtual, then ignore it because there is no way to directly call it from JavaScript
-            if method.get('pure_virtual') and method['pure_virtual']:
-                method['name'] = Preprocessor.ignore_tag
-                continue
-
-            # Fix return type of method
-            method['rtnType'] = Preprocessor.swap_builtin_types(
-                Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
-
-            # Is this an operator? If so, the key 'operator' will be truthy and
-            # hold the value of the operator, for example '='
-            # This code assumes that the bindings use the same format as those of Emscripten
-            if method['operator']:
-                swaps = {
-                    '=': 'op_set',
-                    '+': 'op_add',
-                    '-': 'op_sub',
-                    '*': 'op_mul',
-                    '/': 'op_div',
-                    '[]': 'op_get',
-                    '==': 'op_eq'
-                }
-                if swaps.get(method['operator']):
-                    method['name'] = swaps[method['operator']]
-                else:
-                    # If we are dealing with an unsupported operator, then ignore it
-                    method['name'] = Preprocessor.ignore_tag
-
-            # For each of the parameters, fix the types and names
-            arg_index = 0
-            for arg in method['parameters']:
-
-                # Sometimes CppHeaderParser parses the reference character & into the name of the argument
-                arg['name'] = arg['name'].replace('&', '')
-
-                # If the parameter has no name, then create a generic one for it
-                if arg['name'] == '':
-                    arg['name'] = 'arg' + str(arg_index)
-                    arg_index += 1
-
-                # Remove any templates if present
-                if arg.get('template'):
-                    arg['type'] = Preprocessor.clean_template(arg['type'])
-
-                # Fix the type
-                arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
-
-            method['processed'] = True
+            Preprocessor.process_method(method)
 
         # Process properties now
         for prop in cls['properties']['public']:
@@ -132,6 +77,74 @@ class Preprocessor:
             Preprocessor.preprocess_class(nested_cls)
 
         return True
+
+    @staticmethod
+    def process_method(method):
+        # If the method is already processed (it could occur when we are processing
+        # class hierarchies since subclasses use the same object instance to define
+        # a method that they have inherited from a parent; the same method class instance
+        # is shared with all subclasses)
+        if method.get('processed'):
+            return
+
+        # If method is pure virtual, then ignore it because there is no way to directly call it from JavaScript
+        if method.get('pure_virtual') and method['pure_virtual']:
+            method['name'] = Preprocessor.ignore_tag
+            return
+
+        # Fix return type of method
+        if method.get('returns_unknown'):
+            # This could happen if the class is templated and a templated type is returned
+            method['rtnType'] = 'any'
+        else:
+            method['rtnType'] = Preprocessor.swap_builtin_types(
+                Preprocessor.clean_type(Preprocessor.clean_template(method['rtnType'])))
+
+        # Is this an operator? If so, the key 'operator' will be truthy and
+        # hold the value of the operator, for example '='
+        # This code assumes that the bindings use the same format as those of Emscripten
+        if method['operator']:
+            swaps = {
+                '=': 'op_set',
+                '+': 'op_add',
+                '-': 'op_sub',
+                '*': 'op_mul',
+                '/': 'op_div',
+                '[]': 'op_get',
+                '==': 'op_eq'
+            }
+            if swaps.get(method['operator']):
+                method['name'] = swaps[method['operator']]
+            else:
+                # If we are dealing with an unsupported operator, then ignore it
+                method['name'] = Preprocessor.ignore_tag
+
+        # For each of the parameters, fix the types and names
+        arg_index = 0
+        for arg in method['parameters']:
+
+            # Sometimes CppHeaderParser parses the reference character & into the name of the argument
+            arg['name'] = arg['name'].replace('&', '')
+
+            # If the parameter has no name, then create a generic one for it
+            if arg['name'] == '':
+                arg['name'] = 'arg' + str(arg_index)
+                arg_index += 1
+
+            # If the type of the parameter is not resolved, then it could be a templated
+            # parameter, so we resort to the 'any' type
+            if arg['unresolved']:
+                arg['type'] = 'any'
+                continue
+
+            # Remove any templates if present (e.g. SomeClass<SomeType>)
+            if arg.get('template'):
+                arg['type'] = Preprocessor.clean_template(arg['type'])
+
+            # Fix the type
+            arg['type'] = Preprocessor.swap_builtin_types(Preprocessor.clean_type(arg['type']))
+
+        method['processed'] = True
 
     @staticmethod
     def clean_template(t):
