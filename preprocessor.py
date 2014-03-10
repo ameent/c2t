@@ -210,6 +210,7 @@ class Preprocessor:
             'bool': 'boolean',
             'char': 'string',
             'short': 'number',
+            'long': 'number',
             'unsigned': 'number'
         }
 
@@ -226,6 +227,6 @@ class Preprocessor:
             .replace('struct ', '').replace('static ', '') \
             .replace('class ', '').replace('unsigned ', '') \
             .replace('mutable ', '').replace('short ', '') \
-            .replace('long ', '') \
+            .replace('long ', '').replace('friend ', '') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
