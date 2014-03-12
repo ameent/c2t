@@ -8,16 +8,17 @@ class Preprocessor:
     # Methods that need to be ignored will be renamed to this string
     ignore_tag = '____ignore____'
 
-    def __init__(self):
-        pass
-
     headers = []
+    module_name = ""
 
-    def add_header(self, cppheader):
-        if not isinstance(cppheader, CppHeaderParser.CppHeader):
+    def __init__(self, module_name):
+        self.module_name = module_name
+
+    def add_header(self, header):
+        if not isinstance(header, CppHeaderParser.CppHeader):
             raise "Must provide a CppHeader"
 
-        self.headers.append(cppheader)
+        self.headers.append(header)
 
     def preprocess(self):
         if len(self.headers) == 0:
@@ -27,20 +28,21 @@ class Preprocessor:
         processed_enums = []
 
         for header in self.headers:
-            classes, enums = self.preprocess_header(header)
+            classes, enums = self.preprocess_header(header, self.module_name)
             processed_classes += classes
             processed_enums += enums
 
         return processed_classes, processed_enums
 
     @staticmethod
-    def preprocess_header(header):
+    def preprocess_header(header, module_name):
 
         processed_classes = []
         processed_enums = []
+        classes_with_nested_types = {}
 
         for cls in header.classes.values():
-            if Preprocessor.preprocess_class(cls, header):
+            if Preprocessor.preprocess_class(cls, header, classes_with_nested_types, module_name):
                 processed_classes.append(cls)
 
         for enum in header.global_enums.values():
@@ -49,19 +51,28 @@ class Preprocessor:
         return processed_classes, processed_enums
 
     @staticmethod
-    def preprocess_class(cls, header):
+    def preprocess_class(cls, header, classes_with_nested_types, module_name):
 
-        # It's possible that CppHeaderParser claims a union to be a class, if that's the case,
-        # then ignore it
-        if cls['name'] == 'union ' or cls['name'] == 'union':
+        # Ignore unions
+        if cls['name'].startswith('union ') or cls['name'] == 'union':
             cls['name'] = Preprocessor.ignore_tag
+            return False
+
+        # If we are dealing with an anonymous class definition, then ignore it
+        if cls['name'] == '':
+            cls['name'] = Preprocessor.ignore_tag
+            return False
 
         # Change :: to . to match Typescript syntax
         cls['name'] = cls['name'].replace('::', '.')
 
+        # Track the fact that this class has nested types
+        if len(cls['nested_classes']) > 0:
+            classes_with_nested_types[cls['name']] = True
+
         # Go over all the methods that are public and change their parameter types to Typescript syntax
         for method in cls['methods']['public']:
-            Preprocessor.process_method(method, header)
+            Preprocessor.process_method(method, header, classes_with_nested_types, module_name)
 
         # Process properties now
         for prop in cls['properties']['public']:
@@ -72,7 +83,7 @@ class Preprocessor:
                 prop['name'] = Preprocessor.ignore_tag
 
             # Fix type
-            prop['type'] = Preprocessor.convert_type(prop['type'], header)
+            prop['type'] = Preprocessor.convert_type(prop['type'], header, classes_with_nested_types, module_name)
 
         # Inheritance chain
         for parent in cls['inherits']:
@@ -80,12 +91,12 @@ class Preprocessor:
 
         # Recurse on nested classes
         for nested_cls in cls['nested_classes']:
-            Preprocessor.preprocess_class(nested_cls, header)
+            Preprocessor.preprocess_class(nested_cls, header, classes_with_nested_types, module_name)
 
         return True
 
     @staticmethod
-    def process_method(method, header):
+    def process_method(method, header, classes_with_nested_types, module_name):
         # If the method is already processed (it could occur when we are processing
         # class hierarchies since subclasses use the same object instance to define
         # a method that they have inherited from a parent; the same method class instance
@@ -103,7 +114,8 @@ class Preprocessor:
             # This could happen if the class is templated and a templated type is returned
             method['rtnType'] = 'any'
         else:
-            method['rtnType'] = Preprocessor.convert_type(method['rtnType'], header)
+            method['rtnType'] = Preprocessor.convert_type(method['rtnType'], header,
+                                                          classes_with_nested_types, module_name)
 
         # Is this an operator? If so, the key 'operator' will be truthy and
         # hold the value of the operator, for example '='
@@ -141,12 +153,12 @@ class Preprocessor:
                 arg['type'] = Preprocessor.clean_template(arg['type'])
 
             # Fix the type
-            arg['type'] = Preprocessor.convert_type(arg['type'], header)
+            arg['type'] = Preprocessor.convert_type(arg['type'], header, classes_with_nested_types, module_name)
 
         method['processed'] = True
 
     @staticmethod
-    def convert_type(t, header):
+    def convert_type(t, header, classes_with_nested_types, module_name):
 
         # Clean signage, const, etc.
         t = Preprocessor.clean_type(t)
@@ -165,6 +177,24 @@ class Preprocessor:
         # Finally convert if it is a built-in type
         t = Preprocessor.swap_builtin_types(t)
 
+        # If the type is a class that has nested types, we'll append the name of the global
+        # module before it so that TypeScript does not get confused. Since TypeScript does not have
+        # true nested class support, nested classes are printed as follows:
+        # C++:
+        # class Outer {
+        #     class Inner {};
+        # };
+        # TypeScript:
+        # class Outer {
+        # }
+        # module Outer {
+        #     class Inner {
+        #     }
+        # }
+        # Now, a reference to the Outer class may be ambiguous between the Outer class and Outer module.
+        if classes_with_nested_types.get(t):
+            t = module_name + "." + t
+
         return t
 
     @staticmethod
@@ -178,7 +208,10 @@ class Preprocessor:
             'float': 'number',
             'double': 'number',
             'bool': 'boolean',
-            'char': 'string'
+            'char': 'string',
+            'short': 'number',
+            'long': 'number',
+            'unsigned': 'number'
         }
 
         if swapper.get(t):
@@ -194,5 +227,6 @@ class Preprocessor:
             .replace('struct ', '').replace('static ', '') \
             .replace('class ', '').replace('unsigned ', '') \
             .replace('mutable ', '').replace('short ', '') \
+            .replace('long ', '').replace('friend ', '') \
             .replace('&', '').replace('*', '') \
             .replace(' ', '').replace('::', '.')
