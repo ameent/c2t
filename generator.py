@@ -49,10 +49,10 @@ class Generator:
 
         indent = Generator.get_indent(indent_level)
 
-        output_file.write('%sexport class %s {\r\n' % (indent, enum['name']))
+        output_file.write('%sexport enum %s {\r\n' % (indent, enum['name']))
 
         for enum_value in enum['values']:
-            output_file.write('%sstatic %s = %s;\r\n' %
+            output_file.write('%s%s = %s,\r\n' %
                               (Generator.get_indent(indent_level + 1), enum_value['name'], enum_value['value']))
 
         output_file.write('%s}\r\n' % indent)
@@ -67,7 +67,8 @@ class Generator:
         if len(cls['inherits']) > 0:
             # if there is multiple inheritance in the original C++, we choose the very first class since
             # TypeScript does not allow multiple inheritance
-            output_file.write('%sexport class %s extends %s {\r\n' % (indent, cls['name'], cls['inherits'][0]['class']))
+            output_file.write('%sexport class %s extends %s.%s {\r\n' %
+                              (indent, cls['name'], self.module_name, cls['inherits'][0]['class']))
         else:
             output_file.write('%sexport class %s {\r\n' % (indent, cls['name']))
 
