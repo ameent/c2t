@@ -71,39 +71,3 @@ The following operators are translated:
 |/|op_div|
 |[]|op_get|
 |==|op_eq|
-
-## Enums
-
-TypeScript's enum support does not allow values to be assigned to enum fields, so enums are translates as classes with static properties. For example:
-
-C++
-<pre>
-enum btTypedConstraintType
-{
- POINT2POINT_CONSTRAINT_TYPE=3,
- HINGE_CONSTRAINT_TYPE,
- CONETWIST_CONSTRAINT_TYPE,
- D6_CONSTRAINT_TYPE,
- SLIDER_CONSTRAINT_TYPE,
- CONTACT_CONSTRAINT_TYPE,
- D6_SPRING_CONSTRAINT_TYPE,
- MAX_CONSTRAINT_TYPE
-};
-</pre>
-
-TypeScript
-<pre>
-export class btTypedConstraintType {
-        static POINT2POINT_CONSTRAINT_TYPE = 3;
-        static HINGE_CONSTRAINT_TYPE = 4;
-        static CONETWIST_CONSTRAINT_TYPE = 5;
-        static D6_CONSTRAINT_TYPE = 6;
-        static SLIDER_CONSTRAINT_TYPE = 7;
-        static CONTACT_CONSTRAINT_TYPE = 8;
-        static D6_SPRING_CONSTRAINT_TYPE = 9;
-        static MAX_CONSTRAINT_TYPE = 10;
-}
-</pre>
-
-
-
